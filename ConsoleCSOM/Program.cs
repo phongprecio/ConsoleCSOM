@@ -352,17 +352,13 @@ namespace ConsoleCSOM
             context.Load(currentFolder, x => x.ServerRelativeUrl);
             await context.ExecuteQueryAsync();
 
-            //var builder = new ConfigurationBuilder().AddJsonFile($"appsettings.json", true, true);
-            //IConfiguration config = builder.Build();
-            //var info = config.GetSection("SharepointInfo").Get<SharepointInfo>();
-
-            //To create the folder
+            // Create the folder and sub folder
             ListItemCreationInformation itemCreateInfo = new ListItemCreationInformation();
             itemCreateInfo.UnderlyingObjectType = FileSystemObjectType.Folder;
             itemCreateInfo.FolderUrl = currentFolder.ServerRelativeUrl;
 
             ListItem folder1 = list.AddItem(itemCreateInfo);
-            folder1["Title"] = "Folder 6";
+            folder1["Title"] = "Folder A1";
             folder1.Update();
 
             currentFolder = folder1.Folder;
@@ -371,14 +367,78 @@ namespace ConsoleCSOM
 
             ListItemCreationInformation itemCreateSubFolderInfo = new ListItemCreationInformation();
             itemCreateSubFolderInfo.UnderlyingObjectType = FileSystemObjectType.Folder;
-            itemCreateSubFolderInfo.FolderUrl = currentFolder.ServerRelativeUrl + "/Folder7";
+            itemCreateSubFolderInfo.FolderUrl = currentFolder.ServerRelativeUrl;
 
             ListItem folder2 = list.AddItem(itemCreateSubFolderInfo);
-            folder1["Title"] = "Folder 7";
-            folder1.Update();
+            folder2["Title"] = "Folder A2";
+            folder2.Update();
 
-            //list.RootFolder.Folders.Add("ExisingFolder1").AddSubFolder("rewa", );
+            context.Load(folder2, x => x.Folder.ServerRelativeUrl);
+            await context.ExecuteQueryAsync();
 
+            // Add data sub folder
+            ListItemCreationInformation subFolderItemCreateInfo1 = new ListItemCreationInformation();
+            subFolderItemCreateInfo1.FolderUrl = folder2.Folder.ServerRelativeUrl;
+            ListItem oListItem1 = list.AddItem(subFolderItemCreateInfo1);
+            oListItem1["Title"] = "Item 1";
+            oListItem1["About"] = "Folder test";
+            oListItem1.Update();
+
+            ListItemCreationInformation subFolderItemCreateInfo2 = new ListItemCreationInformation();
+            subFolderItemCreateInfo2.FolderUrl = folder2.Folder.ServerRelativeUrl;
+            ListItem oListItem2 = list.AddItem(subFolderItemCreateInfo2);
+            oListItem2["Title"] = "Item 2";
+            oListItem2["About"] = "Folder test";
+            oListItem2.Update();
+
+            ListItemCreationInformation subFolderItemCreateInfo3 = new ListItemCreationInformation();
+            subFolderItemCreateInfo3.FolderUrl = folder2.Folder.ServerRelativeUrl;
+            ListItem oListItem3 = list.AddItem(subFolderItemCreateInfo3);
+            oListItem3["Title"] = "Item 3";
+            oListItem3["About"] = "Folder test";
+            oListItem3.Update();
+
+            await context.ExecuteQueryAsync();
+        }
+
+        private static async Task AddFieldAuthorAsync(ClientContext context)
+        {
+            Web web = context.Web;
+
+            string field = @"<Field Name='Author' DisplayName='Author' Type='Text' Group='Custom Columns' />";
+            web.Fields.AddFieldAsXml(field, true, AddFieldOptions.DefaultValue);
+            context.Load(web.Fields);
+            await context.ExecuteQueryAsync();
+
+            // Add content type to existed List
+            ContentType contentType = web.ContentTypes.GetById("0x0100DA5D705795149F44B45648D8D24EAC58");
+            context.Load(contentType);
+            await context.ExecuteQueryAsync();
+
+            // Get Site field and add to content type
+            FieldCollection fields = web.Fields;
+            Field peopleField = fields.GetByInternalNameOrTitle("People");
+            context.Load(peopleField);
+            await context.ExecuteQueryAsync();
+
+            FieldLinkCreationInformation fldLinkAbout = new FieldLinkCreationInformation();
+            fldLinkAbout.Field = peopleField;
+
+            contentType.FieldLinks.Add(fldLinkAbout);
+            contentType.Update(false);
+            await context.ExecuteQueryAsync();
+
+            var list = web.Lists.GetByTitle("CSOM Test");
+            var allItemQuery = CamlQuery.CreateAllItemsQuery();
+            var items = list.GetItems(allItemQuery);
+            context.Load(items);
+            await context.ExecuteQueryAsync();
+            
+            foreach(var item in items)
+            {
+                item["Author"] = "CSOM Test";
+                item.Update();
+            }
             await context.ExecuteQueryAsync();
         }
 
