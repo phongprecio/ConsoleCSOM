@@ -5,6 +5,7 @@ using System;
 using System.Threading.Tasks;
 using System.Linq;
 using Microsoft.SharePoint.Client.Taxonomy;
+using System.Collections.Generic;
 
 namespace ConsoleCSOM
 {
@@ -43,7 +44,8 @@ namespace ConsoleCSOM
                     //await CamlQueryGetListAboutAsync(ctx);
                     //await CreateViewByCityAsync(ctx);
                     //await UpdateBatchDataAsync(ctx);
-                    await CreateFolderAsync(ctx);
+                    //await CreateFolderAsync(ctx);
+                    await AddFieldAuthorAsync(ctx);
                 }
 
                 Console.WriteLine($"Press Any Key To Stop!");
@@ -405,38 +407,24 @@ namespace ConsoleCSOM
         {
             Web web = context.Web;
 
-            string field = @"<Field Name='Author' DisplayName='Author' Type='Text' Group='Custom Columns' />";
-            web.Fields.AddFieldAsXml(field, true, AddFieldOptions.DefaultValue);
-            context.Load(web.Fields);
-            await context.ExecuteQueryAsync();
-
-            // Add content type to existed List
-            ContentType contentType = web.ContentTypes.GetById("0x0100DA5D705795149F44B45648D8D24EAC58");
-            context.Load(contentType);
-            await context.ExecuteQueryAsync();
-
-            // Get Site field and add to content type
-            FieldCollection fields = web.Fields;
-            Field peopleField = fields.GetByInternalNameOrTitle("People");
-            context.Load(peopleField);
-            await context.ExecuteQueryAsync();
-
-            FieldLinkCreationInformation fldLinkAbout = new FieldLinkCreationInformation();
-            fldLinkAbout.Field = peopleField;
-
-            contentType.FieldLinks.Add(fldLinkAbout);
-            contentType.Update(false);
-            await context.ExecuteQueryAsync();
-
             var list = web.Lists.GetByTitle("CSOM Test");
+
+            string field = @"<Field Name='CSOMTestAuthor' DisplayName='CSOM Test Author' Type='User' Group='Custom Columns' />";
+            list.Fields.AddFieldAsXml(field, true, AddFieldOptions.DefaultValue);
+            context.Load(list.Fields);
+            await context.ExecuteQueryAsync();
+
+            // Update data
             var allItemQuery = CamlQuery.CreateAllItemsQuery();
             var items = list.GetItems(allItemQuery);
             context.Load(items);
             await context.ExecuteQueryAsync();
-            
+
+            var currentUser = web.CurrentUser;
+
             foreach(var item in items)
             {
-                item["Author"] = "CSOM Test";
+                item["CSOM_x0020_Test_x0020_Author"] = currentUser;
                 item.Update();
             }
             await context.ExecuteQueryAsync();
