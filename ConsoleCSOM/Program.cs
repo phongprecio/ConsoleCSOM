@@ -39,13 +39,13 @@ namespace ConsoleCSOM
                     //await AddSampleDataAsync(ctx);
                     //await UpdateAboutDefaultAsync(ctx);
                     //await AddTermToTermSetAsync(ctx);
-                    //await UpdateCityDefaultAsync(ctx);
+                    await UpdateCityDefaultAsync(ctx);
                     //await DeleteContentType(ctx);
                     //await CamlQueryGetListAboutAsync(ctx);
                     //await CreateViewByCityAsync(ctx);
                     //await UpdateBatchDataAsync(ctx);
                     //await CreateFolderAsync(ctx);
-                    await AddFieldAuthorAsync(ctx);
+                    //await AddFieldAuthorAsync(ctx);
                 }
 
                 Console.WriteLine($"Press Any Key To Stop!");
@@ -164,7 +164,7 @@ namespace ConsoleCSOM
 
             contentType.FieldLinks.Add(fldLinkAbout);
             contentType.FieldLinks.Add(fldLinkCity);
-            contentType.Update(false);
+            contentType.Update(true);
             await context.ExecuteQueryAsync();
 
             // Need manually edit permission add custom content type to list
@@ -215,14 +215,20 @@ namespace ConsoleCSOM
 
             var field = web.Fields.GetByTitle("About");
             field.DefaultValue = "About default";
-            field.Update();
+            field.UpdateAndPushChanges(true);
             await context.ExecuteQueryAsync();
 
-            // TODO Add new data
+            // Add new data
             ListItemCreationInformation itemCreateInfo = new ListItemCreationInformation();
             ListItem oListItem = list.AddItem(itemCreateInfo);
-            oListItem["Title"] = "New Item 2";
+            oListItem["Title"] = "New Item 2.3";
             oListItem.Update();
+            await context.ExecuteQueryAsync();
+
+            ListItemCreationInformation itemCreateInfo2 = new ListItemCreationInformation();
+            ListItem oListItem2 = list.AddItem(itemCreateInfo2);
+            oListItem2["Title"] = "New Item 2.4";
+            oListItem2.Update();
             await context.ExecuteQueryAsync();
         }
 
@@ -264,18 +270,23 @@ namespace ConsoleCSOM
             context.ExecuteQuery();
             //set default value for a taxonomy field
             taxfield.DefaultValue = validatedValue.Value;
-            taxfield.Update();
+            taxfield.UpdateAndPushChanges(true);
             await context.ExecuteQueryAsync();
 
-            // TODO Add new data
+            //  Add new data
             List list = context.Web.Lists.GetByTitle("CSOM Test");
             context.Load(list);
             await context.ExecuteQueryAsync();
 
             ListItemCreationInformation itemCreateInfo = new ListItemCreationInformation();
             ListItem oListItem = list.AddItem(itemCreateInfo);
-            oListItem["Title"] = "New Item 2";
+            oListItem["Title"] = "Test City 1";
             oListItem.Update();
+
+            ListItemCreationInformation itemCreateInfo2 = new ListItemCreationInformation();
+            ListItem oListItem2 = list.AddItem(itemCreateInfo2);
+            oListItem2["Title"] = "Test City 2";
+            oListItem2.Update();
             await context.ExecuteQueryAsync();
         }
 
