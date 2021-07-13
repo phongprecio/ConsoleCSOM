@@ -45,15 +45,12 @@ namespace ConsoleCSOM
                     //await CreateViewByCityAsync(ctx);
                     //await UpdateBatchDataAsync(ctx);
                     //await CreateFolderAsync(ctx);
-                    await AddFieldAuthorAsync(ctx);
+                    //await AddFieldAuthorAsync(ctx);
                     //await CreateTaxonomyMultipleValueAndSetContentTypeAsync(ctx);
-                    //await CreateDataForTaxonomiFieldMultipleAsync(ctx);
+                    await CreateDataForTaxonomiFieldMultipleAsync(ctx);
                     //await CreateDocumentListSync(ctx);
                     //await CreateFolderInDocumentListAsync(ctx);
                     //await CreateDocumentInFolderAsync(ctx);
-
-                    // TODO refactor and remove not need excute command.
-                    // Set default content type of List
                 }
 
                 Console.WriteLine($"Press Any Key To Stop!");
@@ -338,8 +335,10 @@ namespace ConsoleCSOM
         private static async Task UpdateBatchDataAsync(ClientContext context)
         {
             var list = context.Web.Lists.GetByTitle("CSOM Test");
-            var allItemQuery = CamlQuery.CreateAllItemsQuery();
-            var items = list.GetItems(allItemQuery);
+            CamlQuery camlQuery = new CamlQuery();
+            camlQuery.ViewXml = @"<View><Query><Where><IsNotNull><FieldRef Name='About' /></IsNotNull></Where><OrderBy><FieldRef Name='Modified' Ascending='False' /></OrderBy> </Query></View>";
+
+            var items = list.GetItems(camlQuery);
             context.Load(items);
             await context.ExecuteQueryAsync();
             if (items.Count >= 1)
@@ -449,7 +448,7 @@ namespace ConsoleCSOM
             Web web = context.Web;
             List list = web.Lists.GetByTitle("CSOM Test");
 
-            string fieldSchema = "<Field Type='TaxonomyFieldType' DisplayName='Cities' Name='Cities' />";
+            string fieldSchema = "<Field Type='TaxonomyFieldTypeMulti' DisplayName='Cities' Name='Cities' />";
             web.Fields.AddFieldAsXml(fieldSchema, true, AddFieldOptions.AddToDefaultContentType);
 
             TaxonomySession taxonomySession = TaxonomySession.GetTaxonomySession(context);
@@ -504,16 +503,6 @@ namespace ConsoleCSOM
             await context.ExecuteQueryAsync();
 
             // TODO: Update termValueString
-            string termValueString = String.Empty;
-
-            TaxonomyField taxFieldTypeMultiple = context.CastTo<TaxonomyField>(context.Web.Fields.GetByTitle("Cities"));
-            var existingTerms = context.CastTo<TaxonomyFieldValueCollection>(termSet.Terms);
-            foreach (TaxonomyFieldValue tv in existingTerms)
-            {
-                termValueString += tv.WssId + ";#" + tv.Label + "|" + tv.TermGuid + ";#";
-            }
-
-            TaxonomyFieldValueCollection termValues = new TaxonomyFieldValueCollection(context, termValueString, taxFieldTypeMultiple);
 
             for (var i = 0; i < 3; i++)
             {
@@ -521,6 +510,21 @@ namespace ConsoleCSOM
                 ListItem oListItem = list.AddItem(itemCreateInfo);
                 oListItem["Title"] = "Item test" + i;
                 oListItem["ContentTypeId"] = "0x0100DA5D705795149F44B45648D8D24EAC58";
+                oListItem.Update();
+                context.Load(oListItem);
+                await context.ExecuteQueryAsync();
+
+                string termValueString = String.Empty;
+
+                TaxonomyField taxFieldTypeMultiple = context.CastTo<TaxonomyField>(context.Web.Fields.GetByTitle("Cities"));
+                var existingTerms = oListItem["Cities"] as TaxonomyFieldValueCollection; // Error here
+                foreach (TaxonomyFieldValue tv in existingTerms)
+                {
+                    termValueString += tv.WssId + ";#" + tv.Label + "|" + tv.TermGuid + ";#";
+                }
+
+                TaxonomyFieldValueCollection termValues = new TaxonomyFieldValueCollection(context, termValueString, taxFieldTypeMultiple);
+
                 taxFieldTypeMultiple.SetFieldValueByValueCollection(oListItem, termValues);
                 oListItem.Update();
             }
@@ -551,40 +555,40 @@ namespace ConsoleCSOM
             var list = context.Web.Lists.GetByTitle("Document Test");
 
             // Create the folder and sub folder
-            var currentFolder = list.RootFolder;
-            currentFolder = currentFolder.Folders.Add("Folder 1");
-            currentFolder.Folders.Add("Folder 2");
+            //var currentFolder = list.RootFolder;
+            //currentFolder = currentFolder.Folders.Add("Folder 1");
+            //currentFolder.Folders.Add("Folder 2");
 
-            context.Load(currentFolder, x => x.ServerRelativeUrl);
-            await context.ExecuteQueryAsync();
+            //context.Load(currentFolder, x => x.ServerRelativeUrl);
+            //await context.ExecuteQueryAsync();
 
             // TODO: can not add item not type of document in list
-            //TaxonomyField taxField = context.CastTo<TaxonomyField>(context.Web.Fields.GetByTitle("City2")); ;
-            //var taxFieldValue = new TaxonomyFieldValue()
-            //{
-            //    WssId = -1, // alway let it -1
-            //    Label = "Ho Chi Minh",
-            //    TermGuid = "44649e15-7612-432e-b742-147eee391f9b"
-            //};
+            TaxonomyField taxField = context.CastTo<TaxonomyField>(context.Web.Fields.GetByTitle("City2")); ;
+            var taxFieldValue = new TaxonomyFieldValue()
+            {
+                WssId = -1, // alway let it -1
+                Label = "Ho Chi Minh",
+                TermGuid = "44649e15-7612-432e-b742-147eee391f9b"
+            };
 
-            //var folder = context.Web.GetFolderByServerRelativeUrl("Document Test/Folder 1/Folder 2");
-            //context.Load(folder, t => t.ServerRelativeUrl);
-            //await context.ExecuteQueryAsync();
+            var folder = context.Web.GetFolderByServerRelativeUrl("Document Test/Folder 1/Folder 2");
+            context.Load(folder, t => t.ServerRelativeUrl);
+            await context.ExecuteQueryAsync();
 
-            ////Add data sub folder
-            //for (var i = 0; i < 5; i++)
-            //{
-            //    ListItemCreationInformation itemCreateInfo = new ListItemCreationInformation();
-            //    itemCreateInfo.FolderUrl = folder.ServerRelativeUrl;
-            //    ListItem oListItem = list.AddItem(itemCreateInfo);
-            //    oListItem["Title"] = "Item" + i;
-            //    oListItem["About"] = "Folder test";
-            //    oListItem["ContentTypeId"] = "0x0100DA5D705795149F44B45648D8D24EAC58"; // Set content type Id
+            //Add data sub folder
+            for (var i = 0; i < 5; i++)
+            {
+                ListItemCreationInformation itemCreateInfo = new ListItemCreationInformation();
+                itemCreateInfo.FolderUrl = folder.ServerRelativeUrl;
+                ListItem oListItem = list.AddItem(itemCreateInfo);
+                oListItem["Title"] = "Item" + i;
+                oListItem["About"] = "Folder test";
+                oListItem["ContentTypeId"] = "0x0100DA5D705795149F44B45648D8D24EAC58"; // Set content type Id
 
-            //    taxField.SetFieldValueByValue(oListItem, taxFieldValue);
-            //    oListItem.Update();
-            //}
-            //await context.ExecuteQueryAsync();
+                taxField.SetFieldValueByValue(oListItem, taxFieldValue);
+                oListItem.Update();
+            }
+            await context.ExecuteQueryAsync();
         }
 
         private static async Task CreateDocumentInFolderAsync(ClientContext context)
@@ -595,10 +599,14 @@ namespace ConsoleCSOM
 
             Web web = context.Web;
             List list = web.Lists.GetByTitle("Document Test");
+
+            context.Load(list.RootFolder, f => f.ServerRelativeUrl);
+            context.ExecuteQuery();
+
             var file = new FileCreationInformation();
             file.Content = System.IO.File.ReadAllBytes(@"D:\Document\Training\Document.docx");
             file.Overwrite = true;
-            file.Url = "Document.docx";
+            file.Url =  list.RootFolder.ServerRelativeUrl + "/Document.docx";
             File uploadfile = list.RootFolder.Files.Add(file); // Replace by other folder
             uploadfile.ListItemAllFields["Title"] = "This is new Test Document";
             uploadfile.ListItemAllFields.Update();
