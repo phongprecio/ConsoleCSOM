@@ -40,7 +40,6 @@ namespace ConsoleCSOM
                     //await AddTermToTermSetAsync(ctx);
                     //await UpdateCityDefaultAsync(ctx);
                     //await AddSampleDataAsync(ctx);
-                    //await DeleteContentType(ctx);
                     //await CamlQueryGetListAboutAsync(ctx);
                     //await CreateViewByCityAsync(ctx);
                     //await UpdateBatchDataAsync(ctx);
@@ -51,7 +50,9 @@ namespace ConsoleCSOM
                     //await CreateDocumentListSync(ctx);
                     //await CreateFolderInDocumentListAsync(ctx);
                     //await CreateDocumentInFolderAsync(ctx);
-                    await GetListInFolder2Async(ctx);
+                    //await GetListInFolder2Async(ctx);
+                    //await CreateViewShowFolderAsync(ctx);
+                    await GetUserAsync(ctx);
                 }
 
                 Console.WriteLine($"Press Any Key To Stop!");
@@ -103,7 +104,7 @@ namespace ConsoleCSOM
             string fieldAbout = @"<Field Name='About' DisplayName='About' Type='Text' Group='Custom Columns' />";
             web.Fields.AddFieldAsXml(fieldAbout, true, AddFieldOptions.DefaultValue);
 
-            // TODO duplicate name City, so create City2 instead
+            // Duplicate name City, so create City2 instead
             string fieldSchema = "<Field Type='TaxonomyFieldType' DisplayName='City2' Name='City2' Hidden='False'/>";
             web.Fields.AddFieldAsXml(fieldSchema, true, AddFieldOptions.AddToDefaultContentType);
 
@@ -147,8 +148,8 @@ namespace ConsoleCSOM
             await context.ExecuteQueryAsync();
 
             // Add content type to existed List
-            ContentType contentType = web.ContentTypes.GetById("0x0100DA5D705795149F44B45648D8D24EAC58");
 
+            ContentType contentType = web.ContentTypes.GetById("0x0100DA5D705795149F44B45648D8D24EAC58");
             // Get Site field and add to content type
             FieldCollection fields = web.Fields;
             Field aboutField = fields.GetByInternalNameOrTitle("About");
@@ -170,7 +171,6 @@ namespace ConsoleCSOM
             List csomList = web.Lists.GetByTitle("CSOM Test");
             csomList.ContentTypes.AddExistingContentType(contentType);
             csomList.Update();
-            context.Web.Update();
             await context.ExecuteQueryAsync();
         }
 
@@ -198,9 +198,7 @@ namespace ConsoleCSOM
 
         private static async Task UpdateAboutDefaultAsync(ClientContext context)
         {
-            Web web = context.Web;
-
-            var field = web.Fields.GetByTitle("About");
+            var field = context.Web.Fields.GetByTitle("About");
             field.DefaultValue = "About default";
             field.UpdateAndPushChanges(true);
             await context.ExecuteQueryAsync();
@@ -211,16 +209,8 @@ namespace ConsoleCSOM
             await context.ExecuteQueryAsync();
         }
 
-        private static async Task DeleteContentType(ClientContext context)
-        {
-            ContentType contentType = context.Web.ContentTypes.GetById("0x0100DA5D705795149F44B45648D8D24EAE20");
-            contentType.DeleteObject();
-            await context.ExecuteQueryAsync();
-        }
-
         private static async Task AddTermToTermSetAsync(ClientContext context)
         {
-            Web web = context.Web;
             // Get the TaxonomySession
             TaxonomySession taxonomySession = TaxonomySession.GetTaxonomySession(context);
             // Get the term store default
@@ -284,12 +274,12 @@ namespace ConsoleCSOM
 
         private static async Task CreateViewByCityAsync(ClientContext context)
         {
-            string viewQuery = @"<Where><Eq><FieldRef Name='City2' /><Value Type='Text'>Ho Chi Minh</Value></Eq></Where><OrderBy><FieldRef Name='Modified' Ascending='False' /></OrderBy> ";
+            string viewQuery = @"<Where><Eq><FieldRef Name='City2' /><Value Type='TaxonomyFieldType'>Ho Chi Minh</Value></Eq></Where><OrderBy><FieldRef Name='Modified' Ascending='False' /></OrderBy> ";
 
             var list = context.Web.Lists.GetByTitle("CSOM Test");
             ViewCollection viewColl = list.Views;
             ViewCreationInformation creationInfo = new ViewCreationInformation();
-            creationInfo.Title = "CSOM New View 2";
+            creationInfo.Title = "CSOM New View";
             creationInfo.RowLimit = 50;
             creationInfo.ViewFields = new string[] { "ID", "Title", "City2", "About" };
             creationInfo.ViewTypeKind = ViewType.None;
@@ -328,11 +318,13 @@ namespace ConsoleCSOM
             list.EnableFolderCreation = true;
             list.Update();
 
+            await context.ExecuteQueryAsync();
+
             var currentFolder = list.RootFolder;
             context.Load(currentFolder, x => x.ServerRelativeUrl);
             await context.ExecuteQueryAsync();
 
-            // Create the folder and sub folder // TODO: Update
+            // Create the folder and sub folder
             ListItemCreationInformation itemCreateInfo = new ListItemCreationInformation();
             itemCreateInfo.UnderlyingObjectType = FileSystemObjectType.Folder;
             itemCreateInfo.FolderUrl = currentFolder.ServerRelativeUrl;
@@ -356,15 +348,16 @@ namespace ConsoleCSOM
             context.Load(folder2, x => x.Folder.ServerRelativeUrl);
             await context.ExecuteQueryAsync();
 
-            // TODO Update for url
             // Add data sub folder
+            context.Load(list, x => x.RootFolder.ServerRelativeUrl);
+            await context.ExecuteQueryAsync();
+            var folderUrl = list.RootFolder.ServerRelativeUrl + "/Folder A1" + "/Folder A2";
             for (var i = 1; i <= 3; i++)
             {
-                CreateListItem(context, folder2.Folder.ServerRelativeUrl, $"Item F{i}", String.Empty, null);
+                CreateListItem(context, folderUrl, $"Item F{i}", String.Empty, null);
             }
-            
-            await context.ExecuteQueryAsync();
 
+            await context.ExecuteQueryAsync();
         }
 
         private static async Task AddFieldAuthorAsync(ClientContext context)
@@ -440,26 +433,7 @@ namespace ConsoleCSOM
 
         private static async Task CreateDataForTaxonomiFieldMultipleAsync(ClientContext context)
         {
-            Web web = context.Web;
-
-            TaxonomySession taxonomySession = TaxonomySession.GetTaxonomySession(context);
-            TermStore termStore = taxonomySession.GetDefaultSiteCollectionTermStore();
-            TermGroup termGroup = termStore.Groups.GetByName("Site Collection - adminvn.sharepoint.com-sites-TrainingSharePoint");
-            TermSet termSet = termGroup.TermSets.GetByName("city-phong");
-
-            context.Load(termSet);
-            await context.ExecuteQueryAsync();
-
-            // TODO: Update termValueString
             string termValueString = -1 + ";#" + "Stockholm" + "|" + "1ce8d481-fec5-45ff-8b58-6c96996f6aa7" + ";#" + -1 + ";#" + "Term1" + "|" + "0ac925f1-5c5a-422f-ba1f-a98d0ac3b67e";
-            //var terms = termSet.GetAllTerms();
-            //var testString = string.Empty;
-            //context.Load(terms);
-            //await context.ExecuteQueryAsync();
-            //foreach (var term in terms)
-            //{
-            //    testString += -1 + ";#" + term.GetDefaultLabel(1033) + "|" + term.Id + ";#";
-            //}
 
             TaxonomyField taxFieldTypeMultiple = context.CastTo<TaxonomyField>(context.Web.Fields.GetByTitle("Cities"));
 
@@ -472,17 +446,36 @@ namespace ConsoleCSOM
             await context.ExecuteQueryAsync();
         }
 
+        private static async Task CreateDocumentListSync(ClientContext context)
+        {
+            Web web = context.Web;
+            ListCreationInformation creationInfo = new ListCreationInformation();
+            creationInfo.TemplateType = (int)ListTemplateType.DocumentLibrary;
+            creationInfo.Title = "Document Test";
+            web.Lists.Add(creationInfo);
+
+            await context.ExecuteQueryAsync();
+
+            // Add content type to existed List
+            ContentType contentType = web.ContentTypes.GetById("0x0100DA5D705795149F44B45648D8D24EAC58");
+
+            List csomList = web.Lists.GetByTitle("Document Test");
+            csomList.ContentTypes.AddExistingContentType(contentType);
+            csomList.Update();
+            await context.ExecuteQueryAsync();
+        }
+
         private static async Task CreateFolderInDocumentListAsync(ClientContext context)
         {
             var list = context.Web.Lists.GetByTitle("Document Test");
 
-            //// Create the folder and sub folder
-            //var currentFolder = list.RootFolder;
-            //currentFolder = currentFolder.Folders.Add("Folder 1");
-            //currentFolder.Folders.Add("Folder 2");
+            // Create the folder and sub folder
+            var currentFolder = list.RootFolder;
+            currentFolder = currentFolder.Folders.Add("Folder 1");
+            currentFolder.Folders.Add("Folder 2");
 
-            //context.Load(currentFolder, x => x.ServerRelativeUrl);
-            //await context.ExecuteQueryAsync();
+            context.Load(currentFolder, x => x.ServerRelativeUrl);
+            await context.ExecuteQueryAsync();
 
             var folder = context.Web.GetFolderByServerRelativeUrl("Document Test/Folder 1/Folder 2");
             context.Load(folder, t => t.ServerRelativeUrl);
@@ -518,7 +511,7 @@ namespace ConsoleCSOM
                                         <Query>
                                             <Where>
                                                 <Contains>
-                                                    <FieldRef Name='Cities0'/>
+                                                    <FieldRef Name='Cities'/>
                                                     <Value Type='TaxonomyFieldTypeMulti'>Stockholm</Value>
                                                 </Contains>
                                             </Where>
@@ -531,22 +524,38 @@ namespace ConsoleCSOM
             await context.ExecuteQueryAsync();
         }
 
-        private static async Task CreateDocumentListSync(ClientContext context)
+        private static async Task CreateViewShowFolderAsync(ClientContext context)
         {
-            Web web = context.Web;
-            ListCreationInformation creationInfo = new ListCreationInformation();
-            creationInfo.TemplateType = (int)ListTemplateType.DocumentLibrary;
-            creationInfo.Title = "Document Test";
-            web.Lists.Add(creationInfo);
+            string viewQuery = @"<Where>
+                                    <BeginsWith>
+                                        <FieldRef Name='ContentTypeId' />
+                                        <Value Type='ContentTypeId'>0x0120</Value>
+                                    </BeginsWith>
+                                </Where>";
+
+            var list = context.Web.Lists.GetByTitle("Document Test");
+            ViewCollection viewColl = list.Views;
+            ViewCreationInformation creationInfo = new ViewCreationInformation();
+            creationInfo.Title = "Folders";
+            creationInfo.RowLimit = 50;
+            creationInfo.ViewFields = new string[] { "Type", "Name", "Title", "City2", "About" };
+            creationInfo.ViewTypeKind = ViewType.None;
+            creationInfo.SetAsDefaultView = true;
+            creationInfo.Query = viewQuery;
+            viewColl.Add(creationInfo);
 
             await context.ExecuteQueryAsync();
+        }
 
-            // Add content type to existed List
-            ContentType contentType = web.ContentTypes.GetById("0x0100DA5D705795149F44B45648D8D24EAC58");
+        private static async Task GetUserAsync(ClientContext context)
+        {
+            context.Load(context.Web.CurrentUser);
+            await context.ExecuteQueryAsync();
+            var userName = context.Web.CurrentUser.LoginName;
+            // or other userName test1@adminvn.onmicrosoft.com
 
-            List csomList = web.Lists.GetByTitle("Document Test");
-            csomList.ContentTypes.AddExistingContentType(contentType);
-            csomList.Update();
+            var user = context.Web.EnsureUser(userName);
+            context.Load(user);
             await context.ExecuteQueryAsync();
         }
 
