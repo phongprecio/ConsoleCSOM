@@ -30,6 +30,8 @@ namespace ConsoleCSOM
 
                     Console.WriteLine($"Site {ctx.Web.Title}");
 
+                    string userEmail = "phong@adminvn.onmicrosoft.com";
+
                     // await SimpleCamlQueryAsync(ctx);
                     //await CsomTermSetAsync(ctx);
                     //await CreateListCsomTestAsync(ctx);
@@ -41,10 +43,10 @@ namespace ConsoleCSOM
                     //await UpdateCityDefaultAsync(ctx);
                     //await AddSampleDataAsync(ctx);
                     //await CamlQueryGetListAboutAsync(ctx);
-                    //await CreateViewByCityAsync(ctx);
+                    await CreateViewByCityAsync(ctx);
                     //await UpdateBatchDataAsync(ctx);
                     //await CreateFolderAsync(ctx);
-                    //await AddFieldAuthorAsync(ctx);
+                    //await AddFieldAuthorAsync(ctx, userEmail);
                     //await CreateTaxonomyMultipleValueAndSetContentTypeAsync(ctx);
                     //await CreateDataForTaxonomiFieldMultipleAsync(ctx);
                     //await CreateDocumentListSync(ctx);
@@ -52,7 +54,7 @@ namespace ConsoleCSOM
                     //await CreateDocumentInFolderAsync(ctx);
                     //await GetListInFolder2Async(ctx);
                     //await CreateViewShowFolderAsync(ctx);
-                    await GetUserAsync(ctx);
+                    //await GetUserAsync(ctx, userEmail);
                 }
 
                 Console.WriteLine($"Press Any Key To Stop!");
@@ -274,7 +276,7 @@ namespace ConsoleCSOM
 
         private static async Task CreateViewByCityAsync(ClientContext context)
         {
-            string viewQuery = @"<Where><Eq><FieldRef Name='City2' /><Value Type='TaxonomyFieldType'>Ho Chi Minh</Value></Eq></Where><OrderBy><FieldRef Name='Modified' Ascending='False' /></OrderBy> ";
+            string viewQuery = @"<Where><Eq><FieldRef Name='City2' LookupId='TRUE'/><Value Type='Integer'>1</Value></Eq></Where><OrderBy><FieldRef Name='Modified' Ascending='False' /></OrderBy> ";
 
             var list = context.Web.Lists.GetByTitle("CSOM Test");
             ViewCollection viewColl = list.Views;
@@ -360,7 +362,7 @@ namespace ConsoleCSOM
             await context.ExecuteQueryAsync();
         }
 
-        private static async Task AddFieldAuthorAsync(ClientContext context)
+        private static async Task AddFieldAuthorAsync(ClientContext context, string userEmail)
         {
             Web web = context.Web;
 
@@ -375,11 +377,11 @@ namespace ConsoleCSOM
             context.Load(items);
             await context.ExecuteQueryAsync();
 
-            var currentUser = web.CurrentUser;
+            var user = web.EnsureUser(userEmail);
 
             foreach(var item in items)
             {
-                item["CSOM_x0020_Test_x0020_Author"] = currentUser;
+                item["CSOM_x0020_Test_x0020_Author"] = user;
                 item.Update();
             }
             await context.ExecuteQueryAsync();
@@ -433,8 +435,9 @@ namespace ConsoleCSOM
 
         private static async Task CreateDataForTaxonomiFieldMultipleAsync(ClientContext context)
         {
-            string termValueString = -1 + ";#" + "Stockholm" + "|" + "1ce8d481-fec5-45ff-8b58-6c96996f6aa7" + ";#" + -1 + ";#" + "Term1" + "|" + "0ac925f1-5c5a-422f-ba1f-a98d0ac3b67e";
+            string termValueString = $"-1;#Stockholm|1ce8d481-fec5-45ff-8b58-6c96996f6aa7;#-1;#Term1|0ac925f1-5c5a-422f-ba1f-a98d0ac3b67e";
 
+            // TODO truyen them Id vao param de lay thay vi dung title
             TaxonomyField taxFieldTypeMultiple = context.CastTo<TaxonomyField>(context.Web.Fields.GetByTitle("Cities"));
 
             TaxonomyFieldValueCollection termValues = new TaxonomyFieldValueCollection(context, termValueString, taxFieldTypeMultiple);
@@ -486,7 +489,7 @@ namespace ConsoleCSOM
             var content = System.IO.File.ReadAllBytes(@"D:\Document\Training\Document.docx");
             var content2 = System.IO.File.ReadAllBytes(@"D:\Document\Training\Testdocument.docx");
 
-            string termValueString = -1 + ";#" + "Stockholm" + "|" + "1ce8d481-fec5-45ff-8b58-6c96996f6aa7";
+            string termValueString = $"-1#Stockholm|1ce8d481-fec5-45ff-8b58-6c96996f6aa7";
 
             TaxonomyField taxFieldTypeMultiple = context.CastTo<TaxonomyField>(context.Web.Fields.GetByTitle("Cities"));
 
@@ -507,13 +510,15 @@ namespace ConsoleCSOM
 
             CamlQuery camlQuery = new CamlQuery();
             camlQuery.ViewXml = @"
-                                    <View Scope='RecursiveAll'>
+                                    <View>
                                         <Query>
                                             <Where>
-                                                <Contains>
-                                                    <FieldRef Name='Cities'/>
-                                                    <Value Type='TaxonomyFieldTypeMulti'>Stockholm</Value>
-                                                </Contains>
+                                                <In>
+                                                    <FieldRef LookupId='TRUE' Name='Cities'/>
+                                                    <Values>
+                                                        <Value Type='Integer'>2</Value>
+                                                    </Values>
+                                                </In>
                                             </Where>
                                         </Query>
                                     </View>
@@ -528,8 +533,8 @@ namespace ConsoleCSOM
         {
             string viewQuery = @"<Where>
                                     <BeginsWith>
-                                        <FieldRef Name='ContentTypeId' />
-                                        <Value Type='ContentTypeId'>0x0120</Value>
+                                        <FieldRef Name='FSObjType' />
+                                        <Value Type='Integer'>1</Value>
                                     </BeginsWith>
                                 </Where>";
 
@@ -547,14 +552,9 @@ namespace ConsoleCSOM
             await context.ExecuteQueryAsync();
         }
 
-        private static async Task GetUserAsync(ClientContext context)
+        private static async Task GetUserAsync(ClientContext context, string userEmail)
         {
-            context.Load(context.Web.CurrentUser);
-            await context.ExecuteQueryAsync();
-            var userName = context.Web.CurrentUser.LoginName;
-            // or other userName test1@adminvn.onmicrosoft.com
-
-            var user = context.Web.EnsureUser(userName);
+            var user = context.Web.EnsureUser(userEmail);
             context.Load(user);
             await context.ExecuteQueryAsync();
         }
