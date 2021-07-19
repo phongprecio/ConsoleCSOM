@@ -30,7 +30,8 @@ namespace ConsoleCSOM
 
                     Console.WriteLine($"Site {ctx.Web.Title}");
 
-                    string userEmail = "phong@adminvn.onmicrosoft.com";
+                    string userEmail = "user5@adminvn.onmicrosoft.com";
+                    string ownerEmail = "phong@adminvn.onmicrosoft.com";
 
                     // await SimpleCamlQueryAsync(ctx);
                     //await CsomTermSetAsync(ctx);
@@ -43,7 +44,7 @@ namespace ConsoleCSOM
                     //await UpdateCityDefaultAsync(ctx);
                     //await AddSampleDataAsync(ctx);
                     //await CamlQueryGetListAboutAsync(ctx);
-                    await CreateViewByCityAsync(ctx);
+                    //await CreateViewByCityAsync(ctx);
                     //await UpdateBatchDataAsync(ctx);
                     //await CreateFolderAsync(ctx);
                     //await AddFieldAuthorAsync(ctx, userEmail);
@@ -55,6 +56,11 @@ namespace ConsoleCSOM
                     //await GetListInFolder2Async(ctx);
                     //await CreateViewShowFolderAsync(ctx);
                     //await GetUserAsync(ctx, userEmail);
+
+                    // Permissions
+                    await CreateNewPermissionLevelAsync(ctx);
+                    await CreateNewGroupAsync(ctx, ownerEmail, userEmail);
+                    await CheckSubSiteInheritedGroupAsync(ctx);
                 }
 
                 Console.WriteLine($"Press Any Key To Stop!");
@@ -688,6 +694,61 @@ namespace ConsoleCSOM
 
             ctx.Load(items);
             await ctx.ExecuteQueryAsync();
+        }
+
+
+        // Permissions
+        private static async Task GetDefaultSecurityGroup(ClientContext context)
+        {
+            var subSite = context.Site.OpenWeb("FA/");
+            var siteGroups = subSite.SiteGroups;
+            
+        }
+
+        private static async Task CreateNewPermissionLevelAsync(ClientContext context)
+        {
+            BasePermissions perm = new BasePermissions();
+            perm.Set(PermissionKind.CreateAlerts);
+            perm.Set(PermissionKind.ManageLists);
+            perm.Set(PermissionKind.ViewListItems);
+            perm.Set(PermissionKind.ViewPages);
+            perm.Set(PermissionKind.Open);
+            perm.Set(PermissionKind.OpenItems);
+
+            RoleDefinitionCreationInformation creationInfo = new RoleDefinitionCreationInformation();
+            creationInfo.BasePermissions = perm;
+            creationInfo.Description = "A role with create and manage alerts permission";
+            creationInfo.Name = "Alert Manager Role";
+            creationInfo.Order = 0;
+            context.Web.RoleDefinitions.Add(creationInfo);
+
+            await context.ExecuteQueryAsync();
+        }
+
+        private static async Task CreateNewGroupAsync(ClientContext context, string ownerEmail, string userEmail)
+        {
+            var alertRole = context.Web.RoleDefinitions.GetByName("Alert Manager Role");
+            var owner = context.Web.EnsureUser(ownerEmail);
+            var user = context.Web.EnsureUser(userEmail);
+
+            var group = new GroupCreationInformation();
+            group.Title = "Test Group CSOM";
+            var newGroup = context.Web.SiteGroups.Add(group);
+
+            context.Web.RoleAssignments.Add(newGroup, new RoleDefinitionBindingCollection(context) { alertRole });
+            newGroup.Owner = owner;
+            newGroup.Users.AddUser(user);
+            newGroup.Update();
+            await context.ExecuteQueryAsync();
+        }
+
+        private static async Task CheckSubSiteInheritedGroupAsync(ClientContext context)
+        {
+            var subSite = context.Site.OpenWeb("FA/");
+            var groupInherited = subSite.SiteGroups.GetByName("Test Group CSOM");
+            context.Load(groupInherited, g => g.Title);
+            await context.ExecuteQueryAsync();
+            Console.WriteLine(groupInherited.Title);
         }
     }
 }
