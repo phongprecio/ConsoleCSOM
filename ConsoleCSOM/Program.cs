@@ -713,11 +713,10 @@ namespace ConsoleCSOM
             perm.Set(PermissionKind.ViewListItems);
             perm.Set(PermissionKind.ViewPages);
             perm.Set(PermissionKind.Open);
-            perm.Set(PermissionKind.OpenItems);
 
             RoleDefinitionCreationInformation creationInfo = new RoleDefinitionCreationInformation();
             creationInfo.BasePermissions = perm;
-            creationInfo.Description = "A role with create and manage alerts permission";
+            creationInfo.Description = "A role with create alerts and manage list permission";
             creationInfo.Name = "Alert Manager Role";
             creationInfo.Order = 0;
             context.Web.RoleDefinitions.Add(creationInfo);
