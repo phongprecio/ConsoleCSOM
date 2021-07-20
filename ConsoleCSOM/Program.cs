@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using Microsoft.SharePoint.Client.Taxonomy;
 using System.Collections.Generic;
+using Microsoft.SharePoint.Client.UserProfiles;
 
 namespace ConsoleCSOM
 {
@@ -58,9 +59,13 @@ namespace ConsoleCSOM
                     //await GetUserAsync(ctx, userEmail);
 
                     // Permissions
-                    await CreateNewPermissionLevelAsync(ctx);
-                    await CreateNewGroupAsync(ctx, ownerEmail, userEmail);
-                    await CheckSubSiteInheritedGroupAsync(ctx);
+                    await GetDefaultSecurityGroupAsync(ctx);
+                    //await CreateNewPermissionLevelAsync(ctx);
+                    //await CreateNewGroupAsync(ctx, ownerEmail, userEmail);
+                    //await CheckSubSiteInheritedGroupAsync(ctx);
+
+                    // User Profile
+                    //await UpdateUserPropertiesAsync(ctx);
                 }
 
                 Console.WriteLine($"Press Any Key To Stop!");
@@ -698,11 +703,17 @@ namespace ConsoleCSOM
 
 
         // Permissions
-        private static async Task GetDefaultSecurityGroup(ClientContext context)
+        private static async Task GetDefaultSecurityGroupAsync(ClientContext context)
         {
-            var subSite = context.Site.OpenWeb("FA/");
-            var siteGroups = subSite.SiteGroups;
-            
+            var web = context.Web;
+            context.Load(web, w => w.AssociatedMemberGroup, w => w.Title);
+            await context.ExecuteQueryAsync();
+
+            Console.WriteLine("Associated groups for Site \"" + web.Title + "\"");
+
+            Console.WriteLine("*************************************************");
+
+            Console.WriteLine("Member Group: " + web.AssociatedMemberGroup.Title);
         }
 
         private static async Task CreateNewPermissionLevelAsync(ClientContext context)
@@ -748,6 +759,22 @@ namespace ConsoleCSOM
             context.Load(groupInherited, g => g.Title);
             await context.ExecuteQueryAsync();
             Console.WriteLine(groupInherited.Title);
+        }
+
+        private static async Task UpdateUserPropertiesAsync(ClientContext context)
+        {
+            Console.WriteLine("Input Text value");
+            var textValue = Console.ReadLine();
+
+            // Get the people manager instance and initialize the account name.
+            PeopleManager peopleManager = new PeopleManager(context);
+            PersonProperties personProperties = peopleManager.GetMyProperties();
+            context.Load(personProperties, p => p.AccountName);
+            context.ExecuteQuery();
+
+            // Update the TestText property for the user using account name from the user profile.
+            peopleManager.SetSingleValueProfileProperty(personProperties.AccountName, "TestText", textValue);
+            await context.ExecuteQueryAsync();
         }
     }
 }
