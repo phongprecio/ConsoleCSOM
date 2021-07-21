@@ -27,10 +27,15 @@ namespace ConsoleCSOM
                     ctx.Load(ctx.Web);
                     await ctx.ExecuteQueryAsync();
 
+                    string ownerEmail = "phong@adminvn.onmicrosoft.com";
+                    string user5Email = "user5@adminvn.onmicrosoft.com";
+
                     Console.WriteLine($"Site {ctx.Web.Title}");
 
-                    //await SimpleCamlQueryAsync(ctx);
-                    await CsomTermSetAsync(ctx);
+                    await GetDefaultSecurityGroupAsync(ctx);
+                    await CreateNewPermissionLevelAsync(ctx);
+                    await CreateNewGroupAsync(ctx, ownerEmail, user5Email);
+                    await CheckSubSiteInheritedGroupAsync(ctx);
                 }
 
                 Console.WriteLine($"Press Any Key To Stop!");
@@ -48,87 +53,63 @@ namespace ConsoleCSOM
             var info = config.GetSection("SharepointInfo").Get<SharepointInfo>();
             return clientContextHelper.GetContext(new Uri(info.SiteUrl), info.Username, info.Password);
         }
-
-        private static async Task GetFieldTermValue(ClientContext Ctx, string termId)
+        
+        private static async Task GetDefaultSecurityGroupAsync(ClientContext context)
         {
-            //load term by id
-            TaxonomySession session = TaxonomySession.GetTaxonomySession(Ctx);
-            Term taxonomyTerm = session.GetTerm(new Guid(termId));
-            Ctx.Load(taxonomyTerm, t => t.Labels,
-                                   t => t.Name,
-                                   t => t.Id);
-            await Ctx.ExecuteQueryAsync();
+            var web = context.Web;
+            context.Load(web, w => w.AssociatedMemberGroup, w => w.Title);
+            await context.ExecuteQueryAsync();
+
+            Console.WriteLine("Associated groups for Site \"" + web.Title + "\"");
+
+            Console.WriteLine("*************************************************");
+
+            Console.WriteLine("Member Group: " + web.AssociatedMemberGroup.Title);
         }
 
-        private static async Task ExampleSetTaxonomyFieldValue(ListItem item, ClientContext ctx)
+        private static async Task CreateNewPermissionLevelAsync(ClientContext context)
         {
-            var field = ctx.Web.Fields.GetByTitle("fieldname");
+            BasePermissions perm = new BasePermissions();
+            perm.Set(PermissionKind.CreateAlerts);
+            perm.Set(PermissionKind.ManageLists);
+            perm.Set(PermissionKind.ViewListItems);
+            perm.Set(PermissionKind.ViewPages);
+            perm.Set(PermissionKind.Open);
 
-            ctx.Load(field);
-            await ctx.ExecuteQueryAsync();
+            RoleDefinitionCreationInformation creationInfo = new RoleDefinitionCreationInformation();
+            creationInfo.BasePermissions = perm;
+            creationInfo.Description = "A role with create alerts and manage list permission";
+            creationInfo.Name = "Alert Manager Role";
+            creationInfo.Order = 0;
+            context.Web.RoleDefinitions.Add(creationInfo);
 
-            var taxField = ctx.CastTo<TaxonomyField>(field);
-
-            taxField.SetFieldValueByValue(item, new TaxonomyFieldValue()
-            {
-                WssId = -1, // alway let it -1
-                Label = "correct label here",
-                TermGuid = "term id"
-            });
-            item.Update();
-            await ctx.ExecuteQueryAsync();
+            await context.ExecuteQueryAsync();
         }
 
-        private static async Task CsomTermSetAsync(ClientContext ctx)
+        private static async Task CreateNewGroupAsync(ClientContext context, string ownerEmail, string userEmail)
         {
-            // Get the TaxonomySession
-            TaxonomySession taxonomySession = TaxonomySession.GetTaxonomySession(ctx);
-            // Get the term store by name
-            TermStore termStore = taxonomySession.GetDefaultSiteCollectionTermStore();
-            // Get the term group by Name
-            TermGroup termGroup = termStore.Groups.GetByName("Test");
-            // Get the term set by Name
-            TermSet termSet = termGroup.TermSets.GetByName("Test Term Set");
+            var alertRole = context.Web.RoleDefinitions.GetByName("Alert Manager Role");
+            var owner = context.Web.EnsureUser(ownerEmail);
+            var user = context.Web.EnsureUser(userEmail);
 
-            var terms = termSet.GetAllTerms();
+            var group = new GroupCreationInformation();
+            group.Title = "Test Group CSOM";
+            var newGroup = context.Web.SiteGroups.Add(group);
 
-            ctx.Load(terms);
-            await ctx.ExecuteQueryAsync();
+            context.Web.RoleAssignments.Add(newGroup, new RoleDefinitionBindingCollection(context) { alertRole });
+            newGroup.Owner = owner;
+            newGroup.Users.AddUser(user);
+            newGroup.Update();
+            await context.ExecuteQueryAsync();
         }
 
-        private static async Task CsomLinqAsync(ClientContext ctx)
+        private static async Task CheckSubSiteInheritedGroupAsync(ClientContext context)
         {
-            var fieldsQuery = from f in ctx.Web.Fields
-                              where f.InternalName == "Test" ||
-                                    f.TypeAsString == "TaxonomyFieldTypeMulti" ||
-                                    f.TypeAsString == "TaxonomyFieldType"
-                              select f;
-
-            var fields = ctx.LoadQuery(fieldsQuery);
-            await ctx.ExecuteQueryAsync();
-        }
-
-        private static async Task SimpleCamlQueryAsync(ClientContext ctx)
-        {
-            var list = ctx.Web.Lists.GetByTitle("Documents");
-
-            var allItemsQuery = CamlQuery.CreateAllItemsQuery();
-            var allFoldersQuery = CamlQuery.CreateAllFoldersQuery();
-
-            var items = list.GetItems(new CamlQuery()
-            {
-                ViewXml = @"<View>
-                                <Query>
-                                    <OrderBy><FieldRef Name='ID' Ascending='False'/></OrderBy>
-                                </Query>
-                                <RowLimit>20</RowLimit>
-                            </View>",
-                FolderServerRelativeUrl = "/sites/test-site-duc-11111/Shared%20Documents/2"
-                //example for site: https://omniapreprod.sharepoint.com/sites/test-site-duc-11111/
-            });
-
-            ctx.Load(items);
-            await ctx.ExecuteQueryAsync();
+            var subSite = context.Site.OpenWeb("FA/");
+            var groupInherited = subSite.SiteGroups.GetByName("Test Group CSOM");
+            context.Load(groupInherited, g => g.Title);
+            await context.ExecuteQueryAsync();
+            Console.WriteLine(groupInherited.Title);
         }
     }
 }
